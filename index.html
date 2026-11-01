@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Theo dõi kỹ năng</title>
+<style>
+:root{--bg:#faf9f5;--card:#ffffff;--soft:#f1efe8;--fg:#1f1e1d;--muted:#6b6a65;--line:#e4e2da;--track:#e4e2da;--accent:#2f6fd0;--danger:#b3372f}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1b19;--card:#262522;--soft:#2f2e2b;--fg:#f0eee6;--muted:#a3a198;--line:#3a3935;--track:#3f3e3a;--accent:#6aa3f0;--danger:#e57a72}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;font-weight:500;margin:0 0 4px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 20px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.stat{background:var(--soft);border-radius:8px;padding:14px 16px}
+.stat .l{font-size:13px;color:var(--muted)}
+.stat .v{font-size:24px;font-weight:500}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:16px}
+.panel h2{font-size:15px;font-weight:500;margin:0 0 8px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px}
+.ch{display:flex;align-items:center;gap:8px}
+.ch b{font-weight:500;font-size:15px;flex:1}
+.ch span{font-size:13px;color:var(--muted)}
+.desc{font-size:12px;color:var(--muted);margin:2px 0 10px}
+.bar{height:4px;background:var(--track);border-radius:2px;margin-bottom:10px}
+.bar i{display:block;height:4px;background:var(--accent);border-radius:2px;transition:width .2s}
+.row{display:flex;align-items:center;gap:8px;padding:4px 0}
+.row .n{flex:1;font-size:14px;min-width:0;overflow-wrap:anywhere}
+.segs{display:flex;gap:3px;width:96px}
+.seg{flex:1;padding:7px 0;cursor:pointer}
+.seg i{display:block;height:8px;border-radius:2px;background:var(--track)}
+.seg.on i{background:var(--accent)}
+.lab{width:64px;text-align:right;font-size:12px;color:var(--muted)}
+.del{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:4px;border-radius:4px}
+.del:hover{color:var(--danger)}
+.add{display:flex;gap:6px;margin-top:10px}
+input[type=text]{flex:1;min-width:0;font:inherit;font-size:14px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+button.b{font:inherit;font-size:14px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);cursor:pointer}
+button.b:hover{background:var(--soft)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+.note{font-size:13px;color:var(--muted);margin-top:12px}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+svg text{fill:var(--muted);font-size:11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Theo dõi kỹ năng</h1>
+  <p class="sub">Tự đánh giá cấp độ từng kỹ năng, theo dõi tiến độ theo thời gian.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="l">Tiến độ tổng</div><div class="v" id="sTotal">0%</div></div>
+    <div class="stat"><div class="l">Kỹ năng đã bắt đầu</div><div class="v" id="sStarted">0/0</div></div>
+    <div class="stat"><div class="l">Đã thành thạo</div><div class="v" id="sMaster">0</div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Tiến độ theo ngày</h2>
+    <div id="chart"></div>
+  </div>
+
+  <div class="legend">
+    <span>Nhấn vào thanh để chọn cấp độ. Nhấn lại cấp hiện tại để hạ xuống một bậc.</span>
+    <span>1 = Cơ bản</span><span>2 = Khá</span><span>3 = Thành thạo</span>
+  </div>
+
+  <div class="grid" id="groups"></div>
+
+  <div class="tools">
+    <button class="b" id="bExport">Xuất file sao lưu</button>
+    <button class="b" id="bImport">Nhập file sao lưu</button>
+    <button class="b" id="bReset">Đặt lại từ đầu</button>
+    <input type="file" id="file" accept="application/json,.json" hidden>
+  </div>
+  <p class="note">Dữ liệu được lưu trong trình duyệt của bạn (localStorage), trên đúng thiết bị và đúng địa chỉ trang này. Đổi máy, đổi trình duyệt hoặc xóa dữ liệu duyệt web sẽ mất dữ liệu, vì vậy hãy xuất file sao lưu thỉnh thoảng.</p>
+</div>
+<div id="toast" role="status"></div>
+
+<script>
+(function(){
+var KEY="skills-tracker-v1";
+var NAMES=["Chưa học","Cơ bản","Khá","Thành thạo"];
+var DEFAULT=[
+{n:"1. Nền tảng tự thân",d:"Học đầu tiên, nền cho mọi nhóm khác",s:["Tự học và ghi chép","Quản lý thời gian","Kỷ luật và động lực","Chịu áp lực"]},
+{n:"2. Kỹ năng sống",d:"Tự lập, an toàn, cân bằng",s:["Quản lý tài chính cá nhân","Chăm sóc sức khỏe và giấc ngủ","Sơ cứu và an toàn","Kiểm soát cảm xúc","Tự lập việc nhà, nấu ăn"]},
+{n:"3. Kỹ năng mềm và xã hội",d:"Làm việc và ứng xử với người khác",s:["Giao tiếp và lắng nghe","Làm việc nhóm","Thuyết trình","Đàm phán, giải quyết xung đột"]},
+{n:"4. Tư duy và kỹ thuật số",d:"Suy nghĩ tốt và dùng công nghệ tốt",s:["Tư duy phản biện","Giải quyết vấn đề","Sáng tạo","Kỹ năng số và công cụ AI"]},
+{n:"5. Chuyên môn và lãnh đạo",d:"Đào sâu một lĩnh vực, rồi dẫn dắt",s:["Một lĩnh vực chuyên môn chính","Quản lý dự án","Lãnh đạo, huấn luyện người khác"]}
+];
+
+function uid(){return Math.random().toString(36).slice(2,9)}
+function today(){var d=new Date();var m=String(d.getMonth()+1).padStart(2,"0");var x=String(d.getDate()).padStart(2,"0");return d.getFullYear()+"-"+m+"-"+x}
+function defaults(){
+  return {groups:DEFAULT.map(function(g){return {id:uid(),name:g.n,desc:g.d,skills:g.s.map(function(n){return {id:uid(),name:n,level:0}})}}),history:{}};
+}
+function valid(s){
+  return s&&Array.isArray(s.groups)&&s.groups.every(function(g){return g&&typeof g.name==="string"&&Array.isArray(g.skills)&&g.skills.every(function(k){return k&&typeof k.name==="string"&&k.level>=0&&k.level<=3})});
+}
+function load(){
+  try{var r=localStorage.getItem(KEY);if(r){var s=JSON.parse(r);if(valid(s)){if(!s.history)s.history={};return s}}}catch(e){}
+  return defaults();
+}
+var state=load();
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){toast("Không lưu được dữ liệu trên trình duyệt này")}
+}
+function toast(t){
+  var e=document.getElementById("toast");e.textContent=t;e.classList.add("show");
+  clearTimeout(toast.t);toast.t=setTimeout(function(){e.classList.remove("show")},2200);
+}
+function el(tag,attrs,kids){
+  var e=document.createElement(tag);
+  if(attrs)for(var k in attrs){
+    if(k==="class")e.className=attrs[k];
+    else if(k==="text")e.textContent=attrs[k];
+    else if(k.slice(0,2)==="on")e.addEventListener(k.slice(2),attrs[k]);
+    else e.setAttribute(k,attrs[k]);
+  }
+  (kids||[]).forEach(function(c){e.appendChild(c)});
+  return e;
+}
+function stats(){
+  var sum=0,max=0,st=0,ms=0,cnt=0;
+  state.groups.forEach(function(g){g.skills.forEach(function(s){cnt++;sum+=s.level;max+=3;if(s.level>0)st++;if(s.level===3)ms++})});
+  return {pct:max?Math.round(sum/max*100):0,started:st,mastered:ms,count:cnt};
+}
+function commit(){
+  state.history[today()]=stats().pct;
+  save();render();
+}
+function renderChart(){
+  var box=document.getElementById("chart");box.innerHTML="";
+  var days=Object.keys(state.history).sort();
+  if(days.length<2){
+    box.appendChild(el("p",{class:"note",style:"margin:0",text:"Cần dữ liệu của ít nhất 2 ngày để vẽ biểu đồ. Hôm nay đã ghi nhận: "+(state.history[today()]!==undefined?state.history[today()]+"%":"chưa có")+"."}));
+    return;
+  }
+  days=days.slice(-30);
+  var W=600,H=140,L=32,R=10,T=10,B=24;
+  var ns="http://www.w3.org/2000/svg";
+  var svg=document.createElementNS(ns,"svg");
+  svg.setAttribute("viewBox","0 0 "+W+" "+H);svg.setAttribute("width","100%");svg.setAttribute("role","img");
+  svg.setAttribute("aria-label","Biểu đồ tiến độ tổng theo ngày");
+  function mk(t,a){var e=document.createElementNS(ns,t);for(var k in a)e.setAttribute(k,a[k]);return e}
+  [0,50,100].forEach(function(v){
+    var y=T+(H-T-B)*(1-v/100);
+    svg.appendChild(mk("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));
+    var t=mk("text",{x:L-6,y:y+4,"text-anchor":"end"});t.textContent=v+"%";svg.appendChild(t);
+  });
+  var pts=days.map(function(d,i){
+    var x=L+(W-L-R)*(days.length===1?0:i/(days.length-1));
+    var y=T+(H-T-B)*(1-state.history[d]/100);
+    return [x,y];
+  });
+  svg.appendChild(mk("polyline",{points:pts.map(function(p){return p.join(",")}).join(" "),fill:"none",stroke:"var(--accent)","stroke-width":2,"stroke-linejoin":"round"}));
+  pts.forEach(function(p){svg.appendChild(mk("circle",{cx:p[0],cy:p[1],r:3,fill:"var(--accent)"}))});
+  var a=mk("text",{x:L,y:H-6,"text-anchor":"start"});a.textContent=days[0];svg.appendChild(a);
+  var b=mk("text",{x:W-R,y:H-6,"text-anchor":"end"});b.textContent=days[days.length-1];svg.appendChild(b);
+  box.appendChild(svg);
+}
+function render(){
+  var st=stats();
+  document.getElementById("sTotal").textContent=st.pct+"%";
+  document.getElementById("sStarted").textContent=st.started+"/"+st.count;
+  document.getElementById("sMaster").textContent=st.mastered;
+  var box=document.getElementById("groups");box.innerHTML="";
+  state.groups.forEach(function(g){
+    var gs=0;g.skills.forEach(function(s){gs+=s.level});
+    var gp=g.skills.length?Math.round(gs/(3*g.skills.length)*100):0;
+    var card=el("div",{class:"card"});
+    card.appendChild(el("div",{class:"ch"},[el("b",{text:g.name}),el("span",{text:gp+"%"})]));
+    card.appendChild(el("div",{class:"desc",text:g.desc||""}));
+    var bar=el("div",{class:"bar"},[el("i",{style:"width:"+gp+"%"})]);card.appendChild(bar);
+    g.skills.forEach(function(s){
+      var segs=el("div",{class:"segs"});
+      [1,2,3].forEach(function(k){
+        var seg=el("div",{class:"seg"+(s.level>=k?" on":""),role:"button",tabindex:"0","aria-label":s.name+": cấp "+k},[el("i")]);
+        function act(){s.level=(s.level===k)?k-1:k;commit()}
+        seg.addEventListener("click",act);
+        seg.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();act()}});
+        segs.appendChild(seg);
+      });
+      var del=el("button",{class:"del",title:"Xóa kỹ năng","aria-label":"Xóa "+s.name,text:"\u00d7",onclick:function(){
+        if(confirm("Xóa kỹ năng \""+s.name+"\"?")){g.skills=g.skills.filter(function(x){return x!==s});commit()}
+      }});
+      card.appendChild(el("div",{class:"row"},[el("div",{class:"n",text:s.name}),segs,el("div",{class:"lab",text:NAMES[s.level]}),del]));
+    });
+    var inp=el("input",{type:"text",placeholder:"Thêm kỹ năng mới","aria-label":"Tên kỹ năng mới"});
+    function add(){
+      var v=inp.value.trim();if(!v)return;
+      g.skills.push({id:uid(),name:v.slice(0,80),level:0});commit();
+    }
+    inp.addEventListener("keydown",function(e){if(e.key==="Enter")add()});
+    card.appendChild(el("div",{class:"add"},[inp,el("button",{class:"b",text:"Thêm",onclick:add})]));
+    box.appendChild(card);
+  });
+  renderChart();
+}
+document.getElementById("bExport").addEventListener("click",function(){
+  var blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="ky-nang-"+today()+".json";
+  document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(a.href)},1000);
+  toast("Đã xuất file sao lưu");
+});
+var file=document.getElementById("file");
+document.getElementById("bImport").addEventListener("click",function(){file.click()});
+file.addEventListener("change",function(){
+  var f=file.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var s=JSON.parse(r.result);
+      if(!valid(s))throw new Error("bad");
+      if(!s.history)s.history={};
+      state=s;save();render();toast("Đã nhập dữ liệu");
+    }catch(e){toast("File không hợp lệ")}
+    file.value="";
+  };
+  r.readAsText(f);
+});
+document.getElementById("bReset").addEventListener("click",function(){
+  if(confirm("Xóa toàn bộ dữ liệu và đặt lại từ đầu? Hãy xuất file sao lưu trước nếu cần.")){
+    state=defaults();save();render();toast("Đã đặt lại");
+  }
+});
+render();
+})();
+</script>
+</body>
+</html>
